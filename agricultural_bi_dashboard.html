@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroIntel BI Dashboard — Workforce Group</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e1112;
+    --surface: #161a1c;
+    --surface2: #1e2326;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0ede6;
+    --muted: #8a8f96;
+    --accent: #4caf7d;
+    --accent2: #e8a64e;
+    --accent3: #5b9bd5;
+    --danger: #e05c5c;
+    --tag-bg: rgba(76,175,125,0.12);
+    --tag-text: #6dd4a0;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; min-height: 100vh; }
+
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 18px 32px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .topbar-brand { display: flex; align-items: center; gap: 12px; }
+  .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+  .brand-name { font-family: 'DM Serif Display', serif; font-size: 18px; letter-spacing: 0.01em; }
+  .brand-sub { font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .topbar-meta { display: flex; align-items: center; gap: 24px; }
+  .meta-item { display: flex; flex-direction: column; align-items: flex-end; }
+  .meta-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .meta-val { font-size: 13px; font-weight: 500; }
+  .live-badge { background: rgba(76,175,125,0.15); color: var(--accent); font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(76,175,125,0.3); display: flex; align-items: center; gap: 5px; }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.8s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .layout { display: grid; grid-template-columns: 220px 1fr; min-height: calc(100vh - 64px); }
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 24px 0; }
+  .nav-section-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; padding: 0 20px; margin: 20px 0 8px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; cursor: pointer; transition: background 0.15s; font-size: 13px; color: var(--muted); }
+  .nav-item.active { background: rgba(76,175,125,0.1); color: var(--text); border-right: 2px solid var(--accent); }
+  .nav-item:hover:not(.active) { background: rgba(255,255,255,0.04); color: var(--text); }
+  .nav-icon { width: 16px; height: 16px; opacity: 0.6; }
+  .nav-item.active .nav-icon { opacity: 1; }
+
+  .main { padding: 28px 32px; overflow-y: auto; }
+
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+  .page-title { font-family: 'DM Serif Display', serif; font-size: 24px; }
+  .page-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .filter-row { display: flex; gap: 10px; }
+  .filter-btn { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 12px; padding: 7px 14px; border-radius: 6px; cursor: pointer; transition: border-color 0.15s; }
+  .filter-btn.active, .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+  select.filter-btn { appearance: none; -webkit-appearance: none; padding-right: 24px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a8f96'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; position: relative; overflow: hidden; }
+  .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .kpi-card.green::before { background: var(--accent); }
+  .kpi-card.amber::before { background: var(--accent2); }
+  .kpi-card.blue::before { background: var(--accent3); }
+  .kpi-card.red::before { background: var(--danger); }
+  .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  .kpi-value { font-size: 28px; font-weight: 600; line-height: 1; margin-bottom: 8px; }
+  .kpi-delta { font-size: 12px; display: flex; align-items: center; gap: 4px; }
+  .delta-up { color: var(--accent); }
+  .delta-down { color: var(--danger); }
+  .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 28px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  .chart-title { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .chart-sub { font-size: 11px; color: var(--muted); margin-bottom: 16px; }
+  .chart-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; font-size: 11px; color: var(--muted); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: middle; }
+
+  .bottom-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; grid-column: span 2; }
+  .input-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; text-align: left; padding: 0 0 10px; border-bottom: 1px solid var(--border); }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:last-child { border-bottom: none; }
+  td { padding: 10px 0; color: var(--text); }
+  .status-badge { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+  .status-on-track { background: rgba(76,175,125,0.15); color: var(--accent); }
+  .status-at-risk { background: rgba(232,166,78,0.15); color: var(--accent2); }
+  .status-below { background: rgba(224,92,92,0.15); color: var(--danger); }
+
+  .progress-bar-wrap { background: var(--surface2); border-radius: 4px; height: 6px; width: 80px; display: inline-block; vertical-align: middle; }
+  .progress-bar-fill { height: 100%; border-radius: 4px; }
+
+  .input-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .input-row:last-child { border-bottom: none; }
+  .input-name { color: var(--muted); }
+  .input-val { font-weight: 500; }
+  .input-bar { width: 60px; height: 4px; background: var(--surface2); border-radius: 2px; display: inline-block; vertical-align: middle; margin-left: 8px; }
+  .input-bar-fill { height: 100%; border-radius: 2px; }
+
+  .forecast-badge { display: inline-block; background: rgba(91,155,213,0.15); color: var(--accent3); font-size: 10px; padding: 2px 7px; border-radius: 4px; border: 1px solid rgba(91,155,213,0.2); }
+
+  @media (max-width: 1100px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .charts-grid { grid-template-columns: 1fr; }
+    .bottom-grid { grid-template-columns: 1fr; }
+    .table-card { grid-column: span 1; }
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="brand-dot"></div>
+    <div>
+      <div class="brand-name">AgroIntel BI</div>
+      <div class="brand-sub">Agricultural Performance Dashboard</div>
+    </div>
+  </div>
+  <div class="topbar-meta">
+    <div class="meta-item">
+      <div class="meta-label">Period</div>
+      <div class="meta-val">Q1 2025 — Jan to Mar</div>
+    </div>
+    <div class="meta-item">
+      <div class="meta-label">Subsidiaries</div>
+      <div class="meta-val">4 Active Farms</div>
+    </div>
+    <div class="live-badge"><div class="live-dot"></div> Live Data</div>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="nav-section-label">Overview</div>
+    <div class="nav-item active">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </div>
+    <div class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg>
+      Yield Analytics
+    </div>
+    <div class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      Forecasting
+    </div>
+    <div class="nav-section-label">Operations</div>
+    <div class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/></svg>
+      Input Planning
+    </div>
+    <div class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      Field Teams
+    </div>
+    <div class="nav-section-label">Reports</div>
+    <div class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      Monthly Reports
+    </div>
+    <div class="nav-item">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export Data
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Farm Operations Overview</div>
+        <div class="page-sub">Oil Palm, Maize & Cassava — Cross-Subsidiary Performance</div>
+      </div>
+      <div class="filter-row">
+        <select class="filter-btn">
+          <option>All Crops</option>
+          <option>Oil Palm</option>
+          <option>Maize</option>
+          <option>Cassava</option>
+        </select>
+        <select class="filter-btn">
+          <option>All Subsidiaries</option>
+          <option>Farm A — Delta State</option>
+          <option>Farm B — Cross River</option>
+          <option>Farm C — Ogun State</option>
+          <option>Farm D — Ondo State</option>
+        </select>
+        <button class="filter-btn active">Q1 2025</button>
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="kpi-grid">
+      <div class="kpi-card green">
+        <div class="kpi-label">Total Yield (MT)</div>
+        <div class="kpi-value">12,847</div>
+        <div class="kpi-delta delta-up">▲ 8.4% vs Q4 2024</div>
+        <div class="kpi-sub">Target: 13,200 MT (97.3%)</div>
+      </div>
+      <div class="kpi-card amber">
+        <div class="kpi-label">Revenue (₦ Millions)</div>
+        <div class="kpi-value">₦2,341</div>
+        <div class="kpi-delta delta-up">▲ 12.1% vs Q4 2024</div>
+        <div class="kpi-sub">4 active subsidiaries</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-label">Input Utilization (%)</div>
+        <div class="kpi-value">91.6%</div>
+        <div class="kpi-delta delta-down">▼ 2.3% off plan</div>
+        <div class="kpi-sub">Fertilizer shortfall flagged</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">Data Completeness</div>
+        <div class="kpi-value">98.2%</div>
+        <div class="kpi-delta delta-up">▲ 3.5% vs baseline</div>
+        <div class="kpi-sub">14 of 15 KPIs reporting</div>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Monthly Yield Trend vs Forecast</div>
+        <div class="chart-sub">Tonnes per month — all crops combined</div>
+        <div class="chart-legend">
+          <span><span class="legend-dot" style="background:#4caf7d;"></span>Actual Yield</span>
+          <span><span class="legend-dot" style="background:#5b9bd5; border: 1px dashed #5b9bd5; background: transparent;"></span>Forecast</span>
+          <span><span class="legend-dot" style="background:#e8a64e;"></span>Target</span>
+        </div>
+        <div style="position:relative;height:220px;">
+          <canvas id="yieldTrendChart" role="img" aria-label="Monthly yield trend vs forecast, Jan–Jun 2025">Actual yield Jan–Jun 2025.</canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Crop Performance Mix</div>
+        <div class="chart-sub">Share of total yield Q1 2025</div>
+        <div style="position:relative;height:180px;margin-top:8px;">
+          <canvas id="cropMixChart" role="img" aria-label="Crop mix donut chart showing oil palm 52%, maize 28%, cassava 20%">Oil palm 52%, Maize 28%, Cassava 20%.</canvas>
+        </div>
+        <div class="chart-legend" style="justify-content:center;margin-top:10px;">
+          <span><span class="legend-dot" style="background:#4caf7d;"></span>Oil Palm 52%</span>
+          <span><span class="legend-dot" style="background:#5b9bd5;"></span>Maize 28%</span>
+          <span><span class="legend-dot" style="background:#e8a64e;"></span>Cassava 20%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Section -->
+    <div class="bottom-grid">
+      <div class="table-card">
+        <div class="chart-title">Subsidiary KPI Scorecard</div>
+        <div class="chart-sub" style="margin-bottom:16px;">Weekly performance snapshot — Week 12</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Farm / Subsidiary</th>
+              <th>Crop</th>
+              <th>Yield (MT)</th>
+              <th>Target Attainment</th>
+              <th>Q1 Forecast</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Farm A — Delta State</td>
+              <td>Oil Palm</td>
+              <td>4,230</td>
+              <td>
+                <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:96%;background:#4caf7d;"></div></div>
+                <span style="margin-left:8px;">96%</span>
+              </td>
+              <td><span class="forecast-badge">+4.1%</span></td>
+              <td><span class="status-badge status-on-track">On Track</span></td>
+            </tr>
+            <tr>
+              <td>Farm B — Cross River</td>
+              <td>Maize</td>
+              <td>3,118</td>
+              <td>
+                <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:82%;background:#e8a64e;"></div></div>
+                <span style="margin-left:8px;">82%</span>
+              </td>
+              <td><span class="forecast-badge" style="color:#e8a64e;border-color:rgba(232,166,78,0.3);background:rgba(232,166,78,0.1);">-1.2%</span></td>
+              <td><span class="status-badge status-at-risk">At Risk</span></td>
+            </tr>
+            <tr>
+              <td>Farm C — Ogun State</td>
+              <td>Oil Palm</td>
+              <td>3,491</td>
+              <td>
+                <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:100%;background:#4caf7d;"></div></div>
+                <span style="margin-left:8px;">101%</span>
+              </td>
+              <td><span class="forecast-badge">+6.8%</span></td>
+              <td><span class="status-badge status-on-track">On Track</span></td>
+            </tr>
+            <tr>
+              <td>Farm D — Ondo State</td>
+              <td>Cassava</td>
+              <td>2,008</td>
+              <td>
+                <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:68%;background:#e05c5c;"></div></div>
+                <span style="margin-left:8px;">68%</span>
+              </td>
+              <td><span class="forecast-badge" style="color:#e05c5c;border-color:rgba(224,92,92,0.3);background:rgba(224,92,92,0.1);">-8.4%</span></td>
+              <td><span class="status-badge status-below">Below Target</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="input-card">
+        <div class="chart-title">Input Planning Status</div>
+        <div class="chart-sub" style="margin-bottom:14px;">Resource utilization vs plan</div>
+        <div class="input-row">
+          <span class="input-name">Fertilizer (NPK)</span>
+          <span class="input-val">84%
+            <div class="input-bar" style="display:inline-block;"><div class="input-bar-fill" style="width:84%;background:#e8a64e;"></div></div>
+          </span>
+        </div>
+        <div class="input-row">
+          <span class="input-name">Agrochemicals</span>
+          <span class="input-val">97%
+            <div class="input-bar" style="display:inline-block;"><div class="input-bar-fill" style="width:97%;background:#4caf7d;"></div></div>
+          </span>
+        </div>
+        <div class="input-row">
+          <span class="input-name">Labour (man-days)</span>
+          <span class="input-val">103%
+            <div class="input-bar" style="display:inline-block;"><div class="input-bar-fill" style="width:100%;background:#5b9bd5;"></div></div>
+          </span>
+        </div>
+        <div class="input-row">
+          <span class="input-name">Irrigation Water</span>
+          <span class="input-val">91%
+            <div class="input-bar" style="display:inline-block;"><div class="input-bar-fill" style="width:91%;background:#4caf7d;"></div></div>
+          </span>
+        </div>
+        <div class="input-row">
+          <span class="input-name">Seedlings / Planting</span>
+          <span class="input-val">79%
+            <div class="input-bar" style="display:inline-block;"><div class="input-bar-fill" style="width:79%;background:#e05c5c;"></div></div>
+          </span>
+        </div>
+        <div style="margin-top:16px; padding:12px; background: rgba(76,175,125,0.07); border:1px solid rgba(76,175,125,0.2); border-radius:8px; font-size:11px; color:var(--muted); line-height:1.6;">
+          <strong style="color:var(--accent);font-size:11px;">Insight:</strong> Fertilizer shortfall (16% below plan) is the primary driver of Farm B and Farm D underperformance. Recommend accelerating procurement for Q2.
+        </div>
+      </div>
+    </div>
+
+    <!-- Forecast Chart -->
+    <div class="chart-card" style="margin-top:16px;">
+      <div class="chart-title">Q2 2025 Yield Forecast by Crop — Statistical Model Output</div>
+      <div class="chart-sub">ARIMA-based forecast with 95% confidence interval | Python model output</div>
+      <div class="chart-legend">
+        <span><span class="legend-dot" style="background:#4caf7d;"></span>Oil Palm</span>
+        <span><span class="legend-dot" style="background:#5b9bd5;"></span>Maize</span>
+        <span><span class="legend-dot" style="background:#e8a64e;"></span>Cassava</span>
+      </div>
+      <div style="position:relative;height:240px;">
+        <canvas id="forecastChart" role="img" aria-label="Q2 2025 monthly forecast by crop type">Q2 forecast across April, May, June 2025 for oil palm, maize, and cassava.</canvas>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const accentGreen = '#4caf7d', accentAmber = '#e8a64e', accentBlue = '#5b9bd5', accentRed = '#e05c5c';
+const gridColor = 'rgba(255,255,255,0.06)', tickColor = '#8a8f96';
+
+Chart.defaults.color = tickColor;
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.font.size = 11;
+
+new Chart(document.getElementById('yieldTrendChart'), {
+  type: 'line',
+  data: {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    datasets: [
+      {
+        label: 'Actual Yield',
+        data: [3980, 4120, 4747, null, null, null],
+        borderColor: accentGreen,
+        backgroundColor: 'rgba(76,175,125,0.08)',
+        tension: 0.4,
+        fill: true,
+        pointRadius: 4,
+        pointBackgroundColor: accentGreen,
+        borderWidth: 2
+      },
+      {
+        label: 'Forecast',
+        data: [3980, 4120, 4747, 4900, 5100, 5350],
+        borderColor: accentBlue,
+        borderDash: [6, 4],
+        tension: 0.4,
+        fill: false,
+        pointRadius: 3,
+        pointBackgroundColor: accentBlue,
+        borderWidth: 1.5
+      },
+      {
+        label: 'Target',
+        data: [4100, 4100, 4200, 4400, 4600, 4800],
+        borderColor: accentAmber,
+        borderDash: [2, 4],
+        tension: 0,
+        fill: false,
+        pointRadius: 0,
+        borderWidth: 1.5
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, callback: v => v.toLocaleString() }, title: { display: true, text: 'Metric Tonnes', color: tickColor, font: { size: 10 } } }
+    }
+  }
+});
+
+new Chart(document.getElementById('cropMixChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Oil Palm', 'Maize', 'Cassava'],
+    datasets: [{
+      data: [52, 28, 20],
+      backgroundColor: [accentGreen, accentBlue, accentAmber],
+      borderColor: '#161a1c',
+      borderWidth: 3,
+      hoverOffset: 8
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false, cutout: '68%',
+    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}%` } } }
+  }
+});
+
+new Chart(document.getElementById('forecastChart'), {
+  type: 'bar',
+  data: {
+    labels: ['April 2025', 'May 2025', 'June 2025'],
+    datasets: [
+      {
+        label: 'Oil Palm',
+        data: [2548, 2680, 2810],
+        backgroundColor: 'rgba(76,175,125,0.75)',
+        borderRadius: 4,
+        borderSkipped: false
+      },
+      {
+        label: 'Maize',
+        data: [1370, 1440, 1520],
+        backgroundColor: 'rgba(91,155,213,0.75)',
+        borderRadius: 4,
+        borderSkipped: false
+      },
+      {
+        label: 'Cassava',
+        data: [982, 980, 1020],
+        backgroundColor: 'rgba(232,166,78,0.75)',
+        borderRadius: 4,
+        borderSkipped: false
+      }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor }, stacked: false },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor, callback: v => v.toLocaleString() }, title: { display: true, text: 'Forecast MT', color: tickColor, font: { size: 10 } } }
+    }
+  }
+});
+</script>
+</body>
+</html>
